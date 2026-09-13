@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#29463b">
+  <meta name="description" content="天翊班，42位同学。轻点学号，登记作业、红领巾和值日；自动统计，随机抽取班级小助手。">
+  <title>天翊班务簿 · 班级事务小管家</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script><script src="access.js" defer></script>
+</head>
+<body>
+<header class="topbar"><div class="top-inner"><a class="brand" href="./"><span class="brand-icon" aria-hidden="true">天翊</span><span>天翊班务簿<small>班级事务小管家</small></span></a><span class="version">二年级 · 天翊班</span></div></header>
+<section id="login-screen" class="login-screen" aria-labelledby="login-title"><div class="login-card"><div class="login-seal" aria-hidden="true">天翊</div><h1 id="login-title">天翊班务簿</h1><p class="login-subtitle">班务有序，育人有方</p><form id="login-form"><label for="login-user">用户名</label><input id="login-user" type="text" value="天翊" readonly autocomplete="username"><label for="login-password">访问密码</label><input id="login-password" type="password" autocomplete="current-password" required maxlength="64"><p id="login-error" class="error" role="alert"></p><button type="submit" class="primary-button">进入班务簿</button></form><p class="login-note">本机访问锁，修改密码仅对当前浏览器生效。登记记录保存在本机。</p></div></section>
+<div id="app-shell" hidden><main><div class="account-strip"><span>天翊老师</span><div><a class="text-button" href="#history-title">历史记录</a><a class="text-button" href="#backup-title">本机备份</a><button id="password-open" class="text-button">修改密码</button><button id="lock-app" class="quiet-button">锁定</button></div></div>
+  <section class="heading"><div><div class="eyebrow">天翊班 · 日常记录</div><h1>班务登记</h1></div><label class="date-control"><span>登记日期</span><input id="date" type="date" aria-label="登记日期"></label></section>
+  <div class="workspace">
+  <section class="board" aria-label="班级登记">
+    <div class="tabs" role="tablist" aria-label="登记事项"><button role="tab" id="tab-homework" data-mode="homework" aria-controls="task-panel"><span aria-hidden="true">壹</span> 作业</button><button role="tab" id="tab-scarf" data-mode="scarf" aria-controls="task-panel"><span aria-hidden="true">贰</span> 红领巾</button><button role="tab" id="tab-duty" data-mode="duty" aria-controls="task-panel"><span aria-hidden="true">叁</span> 值日</button></div>
+    <div id="task-panel" role="tabpanel" class="panel"><div class="viewing-banner"><span id="viewing-date"></span><button id="back-today" class="text-button" hidden>回到今天</button></div>
+      <div class="panel-heading"><div><h2 id="task-title">作业登记</h2><p id="task-hint">点学号标记已交，再点一次撤回。</p></div><button id="roster-open" class="text-button">编辑学号列表</button></div>
+      <div class="toolbar"><span id="class-count"></span><div><button id="duty-open" class="quiet-button" hidden>安排值日</button><button id="all-done" class="quiet-button">全部标记已交</button><button id="undo" class="text-button" disabled>撤销</button></div></div>
+      <div id="students" class="students"></div>
+      <div class="board-foot"><span class="legend"><i aria-hidden="true">✓</i><span id="legend-text">打勾表示已交</span></span><span id="save-status" role="status">记录保存在当前浏览器</span></div>
+    </div>
+  </section>
+  <aside class="sidebar">
+    <section class="summary card"><div class="section-label">登记统计 <span id="summary-tag">作业</span></div><div class="big-count"><strong id="done-count">0</strong><span>/ <span id="total-count">42</span> 人</span></div><p id="count-description">已交作业</p><div class="progress" role="progressbar" aria-label="完成比例" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-fill"></div></div><div class="summary-bottom"><span id="pending-description">待交</span><strong id="pending-count">42 人</strong></div></section>
+    <section class="helper card"><div class="section-label">当日小助手 <span aria-hidden="true">签</span></div><p class="helper-name" id="helper-name">会是谁呢？</p><p class="helper-note" id="helper-note">从全班同学中随机抽取</p><button id="draw" class="primary-button">抽一位小助手 <span aria-hidden="true">＋</span></button><p class="helper-caption">同一天优先抽取未当选的同学</p></section>
+    <p class="local-note">学号可在“编辑学号列表”中调整。记录仅保存在当前浏览器，不同步到其他设备。</p>
+  </aside>
+  </div>
+  <section class="pending-panel"><div class="pending-heading"><h2 id="pending-title">还没交作业</h2><span id="pending-badge" class="badge">42 人</span></div><div id="pending-names" class="pending-names"></div></section>
+  <section class="history-panel" aria-labelledby="history-title"><div class="history-heading"><div><h2 id="history-title">历史记录 <span id="history-count" class="badge">0 天</span></h2><p>按日期保留完整状态；点“查看当天”回看各学号的登记情况。</p></div><button id="save-day" class="quiet-button">保存当天状态</button></div><div id="history-list"></div></section>
+<section class="backup-panel" aria-labelledby="backup-title"><div><h2 id="backup-title">本机备份</h2><p>把所有日期的记录存成文件。清理浏览器或换设备后，可以从文件恢复。</p></div><div class="backup-actions"><button id="export-backup" class="primary-button">保存备份到本机</button><button id="import-backup" class="quiet-button">从备份文件恢复</button><input id="backup-file" type="file" accept=".json,application/json" hidden></div><p class="backup-help">Windows：下载后保存在电脑文件夹。手机：下载后可存入“文件”。建议每周保存一份。</p><p id="backup-status" role="status"></p></section>
+<footer><span class="footer-line"></span>天翊班 · 班务簿<span class="footer-line"></span></footer>
+</main></div>
+<div role="dialog" aria-modal="true" tabindex="-1" hidden id="roster-dialog" class="modal" aria-label="编辑学号列表"><form id="roster-form"><div class="dialog-heading"><h2>编辑班级学号列表</h2><button type="button" class="close-button" data-close="roster-dialog" aria-label="关闭">×</button></div><p>每行一个学号，也可以用空格或逗号分隔，例如 01、02、03。</p><div class="number-generator"><label for="student-count">全班人数</label><input id="student-count" type="number" min="1" max="100" value="42"><button type="button" id="generate-numbers" class="quiet-button">生成连续学号</button></div><label for="roster-input">学生学号</label><textarea id="roster-input" rows="12" required></textarea><p class="form-note">调整所选日期的学号，并作为新日期的默认名单；其他已保存日期的学号和状态保持不变。</p><p id="roster-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="quiet-button" data-close="roster-dialog">取消</button><button type="submit" class="primary-button">保存学号列表</button></div></form></div>
+<div role="dialog" aria-modal="true" tabindex="-1" hidden id="duty-dialog" class="modal" aria-label="安排当天值日"><form id="duty-form"><div class="dialog-heading"><h2>安排当天值日</h2><button type="button" class="close-button" data-close="duty-dialog" aria-label="关闭">×</button></div><p>勾选今天的值日生，再登记完成情况。</p><div id="duty-options" class="duty-options"></div><div class="dialog-actions"><button type="button" class="quiet-button" data-close="duty-dialog">取消</button><button type="submit" class="primary-button">保存安排</button></div></form></div>
+<div role="dialog" aria-modal="true" tabindex="-1" hidden id="helper-dialog" class="modal helper-dialog" aria-label="小助手当选结果"><button class="close-button" data-close="helper-dialog" aria-label="关闭">×</button><div class="winner-icon" aria-hidden="true">当选</div><p>当天的小助手是</p><h2 id="winner"></h2><p>老师的小帮手，准备好了吗？</p><button class="primary-button" data-close="helper-dialog">就是你啦！</button></div>
+<div id="password-dialog" class="modal" role="dialog" aria-modal="true" aria-label="修改本机密码" tabindex="-1" hidden><form id="password-form"><div class="dialog-heading"><h2>修改本机密码</h2><button type="button" class="close-button" data-close="password-dialog" aria-label="关闭">×</button></div><p>用户名仍为“天翊”。修改只对当前浏览器生效。</p><label for="old-password">当前密码</label><input id="old-password" type="password" autocomplete="current-password" required maxlength="64"><label for="new-password">新密码（4—64位）</label><input id="new-password" type="password" autocomplete="new-password" required minlength="4" maxlength="64"><label for="confirm-password">再次输入新密码</label><input id="confirm-password" type="password" autocomplete="new-password" required minlength="4" maxlength="64"><p id="password-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="quiet-button" data-close="password-dialog">取消</button><button type="submit" class="primary-button">保存新密码</button></div></form></div>
+<div id="modal-backdrop" class="modal-backdrop" hidden></div>
+<div id="toast" class="toast" role="status" hidden></div>
+</body></html>
