@@ -139,7 +139,7 @@
     $('viewing-date').textContent=selectedDate===today()?'正在登记今天 · '+selectedDate:'正在查看 '+selectedDate+' · 修改会更新该日记录';$('back-today').hidden=selectedDate===today();
     all('[data-mode]').forEach(function(b){var selected=b.getAttribute('data-mode')===mode;b.setAttribute('aria-selected',String(selected));b.tabIndex=selected?0:-1;});
     $('task-panel').setAttribute('aria-labelledby','tab-'+mode);$('task-title').textContent=cfg.title;$('task-hint').textContent=cfg.hint;
-    $('class-count').textContent=(mode==='duty'?'当天值日 ':'全班 ')+students.length+' 人';$('duty-open').hidden=mode!=='duty';$('all-done').hidden=isPoints||mode==='homework';$('leaderboard').hidden=!isPoints;$('growth-trail').hidden=!isPoints;$('summary-denominator').hidden=isPoints;$('task-progress').hidden=isPoints;$('all-done').textContent='全部标记'+cfg.done;$('all-done').disabled=!pending.length;$('undo').disabled=!undoState;
+    $('class-count').textContent=(mode==='duty'?'当天值日 ':'全班 ')+students.length+' 人';$('duty-open').hidden=mode!=='duty';$('all-done').hidden=isPoints;$('batch-open').disabled=!students.length;$('leaderboard').hidden=!isPoints;$('growth-trail').hidden=!isPoints;$('summary-denominator').hidden=isPoints;$('task-progress').hidden=isPoints;$('all-done').textContent='全部'+cfg.done;$('all-done').disabled=!pending.length;$('undo').disabled=!undoState;
     clear($('students'));
     students.forEach(function(s){
       if(isPoints)return;
@@ -161,7 +161,56 @@
   $('date').addEventListener('change',function(){var value=$('date').value;if(!validDate(value)){notify('请输入有效日期，格式为 YYYY-MM-DD');$('date').value=selectedDate;return;}selectDate(value);});
   $('back-today').addEventListener('click',function(){selectDate(today());});
   all('[data-mode]').forEach(function(b){b.addEventListener('click',function(){mode=b.getAttribute('data-mode');render();});b.addEventListener('keydown',function(e){var keys=['homework','scarf','duty','points'],i=keys.indexOf(mode),k=e.keyCode;if(k===39)i=(i+1)%4;else if(k===37)i=(i+3)%4;else if(k===36)i=0;else if(k===35)i=3;else return;e.preventDefault();mode=keys[i];render();focus($('tab-'+mode));});});
-  $('all-done').addEventListener('click',function(){if(mode==='points'||mode==='homework')return;remember();if(mode==='duty')rosterForMode().forEach(function(s){if(!has(day().duty,s.id))day().dutyRewardAt[s.id]=new Date().toISOString();});day()[mode]=rosterForMode().map(function(s){return s.id;});if(mode==='scarf'){day().scarfMissing=[];day().scarfMissingAt={};}save();render();notify('已全部标记'+MODES[mode].done+'，可以撤销');});
+  function batchIds(){return all('input:checked',$('batch-options')).map(function(x){return x.value;});}
+  function updateBatchCount(){var count=batchIds().length;$('batch-count').textContent='已选 '+count+' 人';all('button',$('batch-actions')).forEach(function(b){b.disabled=!count;});}
+  function chooseBatch(kind){all('input',$('batch-options')).forEach(function(input){input.checked=kind==='all'||(kind==='pending'&&mode!=='points'&&!has(day()[mode],input.value));});updateBatchCount();}
+  function openBatch(){
+    $('batch-title').textContent=MODES[mode].label+' · 批量登记';$('batch-date').textContent='登记日期：'+selectedDate;
+    $('batch-hint').textContent=mode==='homework'?'先全选，再取消少数例外，或点“全不选”只勾选要处理的学号。已记未交者标为已交时按补交计分；已补交者不会重复返分。':mode==='scarf'?'选择未戴的同学一起登记扣分；已戴或未登记会撤回原来的红领巾扣分。':mode==='duty'?'只处理当天已安排的值日生。完成加1分，重复登记不重复加分。':'勾选参与的同学，再一起登记回答问题或小组长任务。每次点击记一次，请勿重复提交。';
+    clear($('batch-options'));clear($('batch-actions'));
+    rosterForMode().forEach(function(student){var label=el('label'),input=el('input');input.type='checkbox';input.value=student.id;input.checked=mode!=='points';input.addEventListener('change',updateBatchCount);append(label,[input,document.createTextNode(student.number+'号')]);$('batch-options').appendChild(label);});
+    var actions=mode==='homework'?[['done','标记已交 / 补交'],['missing','确认未交 · 每人扣2分']]:mode==='scarf'?[['done','标记已戴'],['missing','确认未戴 · 每人扣1分'],['unknown','改为未登记']]:mode==='duty'?[['done','标记完成 · 每人加1分'],['unknown','撤回完成状态']]:[['answer','每人回答了1题'],['leader','每人当了1次小组长']];
+    actions.forEach(function(action,i){var button=el('button',i===0?'primary-button':'quiet-button',action[1]);button.id='batch-'+action[0];button.type='button';button.addEventListener('click',function(){runBatch(action[0],batchIds());});$('batch-actions').appendChild(button);});
+    $('batch-pending').hidden=mode==='points';updateBatchCount();showModal('batch-dialog');
+  }
+  function runBatch(action,ids){
+    var d=day(),eligible=rosterForMode().map(function(student){return student.id;});ids=ids.filter(function(id,i,list){return has(eligible,id)&&list.indexOf(id)===i;});if(!ids.length)return;
+    var changed=0,skipped=0,makeups=0,stamp=new Date().toISOString(),localToday=today(),before=copy(d),previousUndo=undoState;
+    if(mode==='points'){var field=action==='answer'?'answerEvents':'leaderEvents';if(d[field].length+ids.length>2000){notify('当天记录空间不足，未作修改');return;}}
+    remember();ids.forEach(function(id){
+      if(mode==='homework'){
+        if(action==='done'){
+          if(has(d.homework,id))return;
+          if(has(d.homeworkMissing,id)){
+            if(selectedDate>localToday){skipped++;return;}
+            if(!d.homeworkMakeup[id]){d.homeworkMakeup[id]={submittedOn:localToday,createdAt:stamp};makeups++;}
+          }
+          d.homework.push(id);changed++;
+        }else if(action==='missing'){
+          if(has(d.homeworkMissing,id)){if(d.homeworkMakeup[id])skipped++;return;}
+          d.homework=d.homework.filter(function(x){return x!==id;});d.homeworkMissing.push(id);d.homeworkMissingAt[id]=stamp;changed++;
+        }
+      }else if(mode==='scarf'){
+        var target=action==='done'?'worn':action==='missing'?'missing':'unknown';if(scarfState(d,id)===target)return;
+        d.scarf=d.scarf.filter(function(x){return x!==id;});d.scarfMissing=d.scarfMissing.filter(function(x){return x!==id;});delete d.scarfMissingAt[id];
+        if(target==='worn')d.scarf.push(id);if(target==='missing'){d.scarfMissing.push(id);d.scarfMissingAt[id]=stamp;}changed++;
+      }else if(mode==='duty'){
+        if(action==='done'){if(has(d.duty,id))return;d.duty.push(id);d.dutyRewardAt[id]=stamp;changed++;}
+        else {if(!has(d.duty,id))return;d.duty=d.duty.filter(function(x){return x!==id;});delete d.dutyRewardAt[id];changed++;}
+      }else if(mode==='points'){
+        var key=action==='answer'?'answerEvents':'leaderEvents';d[key].push({id:action+'-'+new Date().getTime()+'-'+id+'-'+Math.random().toString(36).slice(2),studentId:id,createdAt:stamp});changed++;
+      }
+    });
+    if(!changed){state.days[selectedDate]=before;undoState=previousUndo;notify('没有需要更新的状态'+(skipped?'；已补交或未来日期的记录已跳过':''));return;}
+    save();closeModal();render();notify('已批量更新 '+changed+' 人'+(makeups?'，其中 '+makeups+' 人按'+(selectedDate===localToday?'当天补交返1分':'隔日补交不返分'):'')+(skipped?'；跳过 '+skipped+' 人':'')+'。误操作可撤销整批');
+  }
+  $('batch-open').addEventListener('click',openBatch);
+  $('batch-all').addEventListener('click',function(){chooseBatch('all');});
+  $('batch-none').addEventListener('click',function(){chooseBatch('none');});
+  $('batch-pending').addEventListener('click',function(){chooseBatch('pending');});
+  $('all-done').addEventListener('click',function(){if(mode==='points')return;runBatch('done',rosterForMode().map(function(student){return student.id;}));});
+  $('duty-select-all').addEventListener('click',function(){all('input',$('duty-options')).forEach(function(input){input.checked=true;});});
+  $('duty-select-none').addEventListener('click',function(){all('input',$('duty-options')).forEach(function(input){input.checked=false;});});
   all('[data-scarf-state]').forEach(function(b){b.addEventListener('click',function(){setScarf(b.getAttribute('data-scarf-state'));});});
   all('[data-homework-action]').forEach(function(b){b.addEventListener('click',function(){setHomework(b.getAttribute('data-homework-action'));});});
   $('answer-add').addEventListener('click',function(){if(!scoreStudentId||day().answerEvents.length>=2000){notify('当天回答记录已满');return;}remember();day().answerEvents.push({id:'answer-'+new Date().getTime()+'-'+Math.random().toString(36).slice(2),studentId:scoreStudentId,createdAt:new Date().toISOString()});save();render();renderScoreDetail();notify('已登记回答1题，每2题自动加1分');});
